@@ -53,7 +53,7 @@
         "@remirror/extension-underline": "^3.0.1",
         "@remirror/pm": "^3.0.0",
         "@remirror/react": "^3.0.1",
-        "@tauri-apps/api": "^2.6.0",
+        "@tauri-apps/api": "2.9.0",
         "@tauri-apps/plugin-fs": "^2.4.0",
         "@tauri-apps/plugin-notification": "~2.3.1",
         "@tauri-apps/plugin-store": "^2.4.0",
