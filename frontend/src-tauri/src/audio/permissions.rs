@@ -168,7 +168,7 @@ pub fn check_microphone_permission() -> bool {
     
     // Try to get the default input device
     match host.default_input_device() {
-        Some(device) => {
+        Some(_device) => {
             info!("✅ Microphone permission granted - default input device available");
             true
         }
