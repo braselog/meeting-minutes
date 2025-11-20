@@ -5,6 +5,12 @@ use log::{info, warn, error};
 #[cfg(target_os = "macos")]
 use std::process::Command;
 
+#[cfg(target_os = "macos")]
+use std::sync::Once;
+
+#[cfg(target_os = "macos")]
+static INIT_MICROPHONE_PERMISSION: Once = Once::new();
+
 /// Check if the app has Audio Capture permission (required for Core Audio taps on macOS 14.4+)
 ///
 /// Note: Core Audio taps require NSAudioCaptureUsageDescription in Info.plist.
@@ -150,6 +156,138 @@ pub async fn trigger_system_audio_permission_command() -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Check if the app has microphone permission
+/// This uses cpal to attempt to enumerate input devices, which triggers the permission dialog
+#[cfg(target_os = "macos")]
+pub fn check_microphone_permission() -> bool {
+    use cpal::traits::HostTrait;
+    
+    info!("🎤 Checking microphone permission...");
+    
+    let host = cpal::default_host();
+    
+    // Try to get the default input device
+    match host.default_input_device() {
+        Some(device) => {
+            info!("✅ Microphone permission granted - default input device available");
+            true
+        }
+        None => {
+            warn!("⚠️ No default microphone device available - permission may not be granted");
+            false
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn check_microphone_permission() -> bool {
+    true // Not required on other platforms
+}
+
+/// Request microphone permission from the user
+/// This triggers the permission dialog by attempting to access the microphone
+#[cfg(target_os = "macos")]
+pub fn request_microphone_permission() -> Result<()> {
+    info!("🔐 Requesting microphone permission...");
+    
+    // Use the existing trigger_audio_permission function from devices module
+    // This will attempt to create an audio stream which triggers the permission dialog
+    match crate::audio::trigger_audio_permission() {
+        Ok(_) => {
+            info!("✅ Microphone permission request triggered successfully");
+            Ok(())
+        }
+        Err(e) => {
+            error!("❌ Failed to trigger microphone permission: {}", e);
+            Err(e)
+        }
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn request_microphone_permission() -> Result<()> {
+    Ok(()) // Not required on other platforms
+}
+
+/// Ensure microphone permission is granted
+/// This will request permission if not already granted
+/// Returns true if permission is already granted, false if it was just requested
+#[cfg(target_os = "macos")]
+pub fn ensure_microphone_permission() -> bool {
+    if check_microphone_permission() {
+        info!("✅ Microphone permission already granted");
+        return true;
+    }
+    
+    info!("⚠️ Microphone permission not granted - requesting...");
+    
+    if let Err(e) = request_microphone_permission() {
+        error!("❌ Failed to request microphone permission: {}", e);
+        return false;
+    }
+    
+    // Check again after requesting
+    let granted = check_microphone_permission();
+    if granted {
+        info!("✅ Microphone permission granted after request");
+    } else {
+        warn!("⚠️ Microphone permission still not granted after request");
+    }
+    
+    granted
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn ensure_microphone_permission() -> bool {
+    true // Not required on other platforms
+}
+
+/// Tauri command to check microphone permission
+#[tauri::command]
+pub async fn check_microphone_permission_command() -> bool {
+    check_microphone_permission()
+}
+
+/// Tauri command to request microphone permission
+#[tauri::command]
+pub async fn request_microphone_permission_command() -> Result<(), String> {
+    request_microphone_permission()
+        .map_err(|e| e.to_string())
+}
+
+/// Tauri command to ensure microphone permission (check and request if needed)
+#[tauri::command]
+pub async fn ensure_microphone_permission_command() -> bool {
+    ensure_microphone_permission()
+}
+
+/// Initialize and request microphone permission on app startup
+/// This should be called during app setup to ensure permissions are requested early
+#[cfg(target_os = "macos")]
+pub fn init_microphone_permission() {
+    INIT_MICROPHONE_PERMISSION.call_once(|| {
+        info!("🎤 Initializing microphone permission on app startup...");
+        
+        // Spawn a thread to avoid blocking startup
+        std::thread::spawn(|| {
+            // Small delay to ensure app is fully initialized
+            std::thread::sleep(std::time::Duration::from_millis(500));
+            
+            if !check_microphone_permission() {
+                info!("🔐 Microphone permission not granted, requesting...");
+                let _ = request_microphone_permission();
+            } else {
+                info!("✅ Microphone permission already granted");
+            }
+        });
+    });
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn init_microphone_permission() {
+    // Not required on other platforms
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,5 +296,11 @@ mod tests {
     fn test_check_permission() {
         let has_permission = check_screen_recording_permission();
         println!("Has Screen Recording permission: {}", has_permission);
+    }
+    
+    #[test]
+    fn test_check_microphone_permission() {
+        let has_permission = check_microphone_permission();
+        println!("Has Microphone permission: {}", has_permission);
     }
 }

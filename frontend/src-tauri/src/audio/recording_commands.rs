@@ -70,6 +70,17 @@ pub async fn start_recording_with_meeting_name<R: Runtime>(
         meeting_name
     );
 
+    // Check microphone permission on macOS
+    #[cfg(target_os = "macos")]
+    {
+        info!("🎤 Checking microphone permission before starting recording...");
+        if !crate::audio::ensure_microphone_permission() {
+            error!("❌ Microphone permission not granted");
+            return Err("Microphone permission is required to record audio. Please grant permission in System Settings > Privacy & Security > Microphone and restart the app.".to_string());
+        }
+        info!("✅ Microphone permission verified");
+    }
+
     // Check if already recording
     let current_recording_state = IS_RECORDING.load(Ordering::SeqCst);
     info!("🔍 IS_RECORDING state check: {}", current_recording_state);
@@ -208,6 +219,17 @@ pub async fn start_recording_with_devices_and_meeting<R: Runtime>(
         "Starting recording with specific devices: mic={:?}, system={:?}, meeting={:?}",
         mic_device_name, system_device_name, meeting_name
     );
+
+    // Check microphone permission on macOS if we're using a microphone
+    #[cfg(target_os = "macos")]
+    if mic_device_name.is_some() || (mic_device_name.is_none() && system_device_name.is_none()) {
+        info!("🎤 Checking microphone permission before starting recording...");
+        if !crate::audio::ensure_microphone_permission() {
+            error!("❌ Microphone permission not granted");
+            return Err("Microphone permission is required to record audio. Please grant permission in System Settings > Privacy & Security > Microphone and restart the app.".to_string());
+        }
+        info!("✅ Microphone permission verified");
+    }
 
     // Check if already recording
     let current_recording_state = IS_RECORDING.load(Ordering::SeqCst);

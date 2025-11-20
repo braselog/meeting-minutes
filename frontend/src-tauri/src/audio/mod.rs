@@ -100,3 +100,13 @@ pub use ffmpeg_mixer::{FFmpegAudioMixer, BufferStats, RNNOISE_APPLY_ENABLED};
 
 pub use vad::{extract_speech_16k};
 
+// Export permission functions
+pub use permissions::{
+    check_microphone_permission, request_microphone_permission, ensure_microphone_permission,
+    init_microphone_permission,
+    check_microphone_permission_command, request_microphone_permission_command, 
+    ensure_microphone_permission_command,
+    check_screen_recording_permission_command, request_screen_recording_permission_command,
+    trigger_system_audio_permission_command,
+};
+
